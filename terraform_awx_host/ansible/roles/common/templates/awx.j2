@@ -1,0 +1,12 @@
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name {{ awx_dns_name }};
+
+    location / {
+        proxy_pass http://localhost:{{ awx_host_port }}/;
+    }
+
+    proxy_redirect  http://localhost:{{ awx_host_port }} https://{{ awx_dns_name }};
+}

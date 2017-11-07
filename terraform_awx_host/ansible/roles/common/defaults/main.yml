@@ -1,0 +1,6 @@
+---
+# defaults file for common
+nginx_service_name: nginx
+awx_host_port: 8080
+awx_dns_name: awx.example.com
+certbot_registry_email: admin@example.com

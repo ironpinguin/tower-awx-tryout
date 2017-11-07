@@ -1,0 +1,106 @@
+---
+# tasks file for common
+
+- name: add docker apt key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  become: yes
+  become_user: root
+
+- name: add repositories
+  apt_repository:
+    repo: "{{ item }}"
+    state: present
+    update_cache: yes
+  with_items:
+    - "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    - "ppa:ansible/ansible"
+    - "ppa:certbot/certbot"
+  become: yes
+  become_user: root
+
+- name: install required packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python-docker
+    - nginx
+    - docker-ce
+    - ansible
+    - certbot
+    - python-certbot-nginx
+  become: yes
+  become_user: root
+
+- name: add ubuntu to group docker
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+  become: yes
+  become_user: root
+
+- name: check repo exists
+  stat: path=/home/ubuntu/awx
+  register: awx_path
+
+- name: clone awx repo
+  git:
+    repo: https://github.com/ansible/awx.git
+    dest: /home/ubuntu/awx
+    version: 1.0.1
+  when: awx_path.stat.exists == False
+  become: yes
+  become_user: ubuntu
+
+- name: change docker webpage host port
+  lineinfile:
+    dest: /home/ubuntu/awx/installer/inventory
+    regexp: '^host_port=80$'
+    line: "host_port={{ awx_host_port }}"
+  become: yes
+  become_user: ubuntu
+
+- name: start awx docker container
+  command: "ansible-playbook -i inventory install.yml"
+  args:
+    chdir: /home/ubuntu/awx/installer
+  become: yes
+  become_user: ubuntu
+
+- name: check if awx exists already
+  stat: path=/etc/nginx/sites-available/awx
+  stat: path=/etc/nginx/sites-available/awx
+  register: awx_vhost
+
+- name: add awx nginx host
+  template:
+    src: awx.j2
+    dest: /etc/nginx/sites-available/awx
+  when: awx_vhost.stat.exists == False
+  become: yes
+  become_user: root
+
+- name: link awx nginx host
+  file:
+    src: /etc/nginx/sites-available/awx
+    dest: /etc/nginx/sites-enabled/awx
+    state: link
+  become: yes
+  become_user: root
+  notify:
+    - Restart Nginx
+
+- name: force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers
+
+- name: run certbot initialitation
+  command: "certbot --nginx -n -d {{ awx_dns_name }} --agree-tos -m {{ certbot_registry_email }} --redirect creates=/etc/letsencrypt/live"
+  args:
+    creates: "/etc/letsencrypt/live/{{ awx_dns_name }}/fullchain.pem"
+  become: yes
+  become_user: root
+  notify:
+    - Restart Nginx
