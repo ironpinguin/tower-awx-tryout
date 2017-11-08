@@ -34,7 +34,7 @@ The instance will be a ubuntu 16.04 LTS
 
 **Tearup**
 1. Run Terraform. `cd terraform_awx_host` 
-    1. Normal you run first `terraform plan` to see what terraform will do
+    1. Normal you run one time `terraform init` and than `terraform plan` to see what terraform will do
     2. Than run `terraform apply` to create the instance with DNS entry and security role
 2. Run Ansilbe. `cd ansible`
     1. Run `ansible-playbook -i inventory -e awx_dns_name=awx.YOUR_ROUTE53_ZONE certbot_registry_email=YOUR_EMAIL main.yml`
